@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field, asdict
 from typing import Dict, Optional
 from .vatican_metadata import LanguageNames, DocumentMetadata, DocumentType
-
+from .document_summary import DocumentSummary
 
 @dataclass
 class Document:
@@ -12,15 +12,14 @@ class Document:
     date: Optional[str] = None
     title: str = ""
     excerpt: LanguageNames = field(default_factory=dict)
-    metadata: DocumentMetadata = field(default_factory=lambda: {"vatican_urls": {}})
-    
+    metadata: DocumentMetadata = field(default_factory=lambda: {"vatican_urls": {}, "raw_html": {}})
+
     def to_dict(self) -> Dict:
         """Convert Document to dictionary for JSON serialization."""
         return asdict(self)
-    
-    def to_summary(self) -> 'DocumentSummary':
+
+    def to_summary(self) -> DocumentSummary:
         """Convert to DocumentSummary for inclusion in Pope's documents list."""
-        from .document_summary import DocumentSummary
         return DocumentSummary(
             id=self.id,
             pope_id=self.pope_id,

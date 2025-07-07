@@ -36,25 +36,25 @@ def parse_vatican_date(date_str: str) -> Optional[str]:
 
 class VaticanPopeScraper:
     """Specialized scraper for Vatican pope information"""
-    
+
     BASE_URL = "https://www.vatican.va"
-    
+
     def __init__(self):
         self.session = requests.Session()
         self.session.headers.update({
             "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
         })
-    
+
     def scrape_pope_list(self) -> List[Pope]:
         """Scrapes the list of popes from the Vatican's holy_father index page."""
         pope_list_url = "https://www.vatican.va/holy_father/index.htm"
         popes = []
-        
+   
         try:
             response = self.session.get(pope_list_url)
             response.raise_for_status()
             soup = BeautifulSoup(response.content, "html.parser")
-            
+       
             # Find the main table containing pope links
             main_table = soup.find("table", class_="table_bord")
             if not main_table:
@@ -62,7 +62,7 @@ class VaticanPopeScraper:
                 main_table = soup.select_one(
                     "body > div > table > tbody > tr:nth-of-type(2) > td > table > tbody > tr:nth-of-type(2) > td:nth-of-type(1) > table"
                 )
-            
+       
             if main_table:
                 for link in main_table.find_all("a", href=True):
                     href = link.get("href")
@@ -72,7 +72,7 @@ class VaticanPopeScraper:
                         match = re.search(r"/content/([^/]+)/en\.html", href)
                         if match:
                             pope_id = match.group(1)
-                            
+                       
                             # Create Pope object with basic info
                             pope = Pope(
                                 id=pope_id,
@@ -82,30 +82,30 @@ class VaticanPopeScraper:
                                     "documents_vatican_url_index": {}
                                 }
                             )
-                            
+                       
                             # Get detailed pope information and update the Pope object
                             self._update_pope_details(pope)
-                            
+                       
                             popes.append(pope)
             else:
                 print("Error: Could not find the main table containing pope list.")
-                
+           
         except requests.exceptions.RequestException as e:
             print(f"Error fetching pope list page {pope_list_url}: {e}")
         except Exception as e:
             print(f"Error parsing pope list from {pope_list_url}: {e}")
-            
+       
         return popes
-    
+
     def _update_pope_details(self, pope: Pope) -> None:
         """Updates a Pope object with detailed information from their Vatican page."""
         details_url = f"https://www.vatican.va/content/{pope.id}/en.html"
-        
+   
         try:
             response = self.session.get(details_url)
             response.raise_for_status()
             soup = BeautifulSoup(response.content, "html.parser")
-            
+       
             info_div = soup.find("div", class_="info")
             if info_div:
                 # Official Name (H1) - usually Latin
@@ -113,12 +113,12 @@ class VaticanPopeScraper:
                 if h1:
                     latin_name = h1.get_text(strip=True)
                     pope.names["la"] = latin_name
-                
+           
                 # Birth Name (H2 i)
                 h2_i = info_div.find("h2")
                 if h2_i and h2_i.find("i"):
                     pope.full_name = h2_i.find("i").get_text(strip=True)
-                
+           
                 # Reign Dates (H2 b)
                 b_tags = info_div.find_all("b")
                 if len(b_tags) >= 1:
@@ -136,7 +136,7 @@ class VaticanPopeScraper:
                         pope.reign_end = parse_vatican_date(
                             siv_text_h2_b.get_text(strip=True)
                         )
-            
+       
         except requests.exceptions.RequestException as e:
             print(f"Error fetching pope details page {details_url}: {e}")
         except Exception as e:

@@ -14,18 +14,6 @@ from datetime import datetime
 
 from models.document import Document
 
-LANGUAGE_CODES = {
-    "en": "en",  # English
-    "es": "es",  # Spanish
-    "pt": "pt",  # Portuguese
-    "it": "it",  # Italian
-    "fr": "fr",  # French
-    "la": "la",  # Latin
-    "de": "ge",  # German (optional)
-    "pl": "pl",  # Polish (optional)
-}
-
-
 def parse_vatican_date(date_str: str) -> Optional[str]:
     """Parses Vatican date strings (e.g., '19.IV.2005') into YYYY-MM-DD format."""
     if not date_str:
@@ -68,10 +56,10 @@ def parse_document_date(date_str: str) -> Optional[str]:
         "january": 1, "february": 2, "march": 3, "april": 4, "may": 5, "june": 6,
         "july": 7, "august": 8, "september": 9, "october": 10, "november": 11, "december": 12
     }
-    
+
     # Handle formats like "17 April 2003", "November 28, 1959", "24 May 2015"
     date_str = date_str.strip().lower()
-    
+
     # Pattern 1: "17 April 2003" or "24 May 2015"
     match = re.match(r'^(\d{1,2})\s+(\w+)\s+(\d{4})$', date_str)
     if match:
@@ -82,7 +70,7 @@ def parse_document_date(date_str: str) -> Optional[str]:
                 return datetime(int(year), month, int(day)).strftime("%Y-%m-%d")
             except ValueError:
                 pass
-    
+
     # Pattern 2: "November 28, 1959"
     match = re.match(r'^(\w+)\s+(\d{1,2}),?\s+(\d{4})$', date_str)
     if match:
@@ -93,7 +81,7 @@ def parse_document_date(date_str: str) -> Optional[str]:
                 return datetime(int(year), month, int(day)).strftime("%Y-%m-%d")
             except ValueError:
                 pass
-    
+
     # Pattern 3: "December 25, 2005"
     match = re.match(r'^(\w+)\s+(\d{1,2}),\s+(\d{4})$', date_str)
     if match:
@@ -104,7 +92,7 @@ def parse_document_date(date_str: str) -> Optional[str]:
                 return datetime(int(year), month, int(day)).strftime("%Y-%m-%d")
             except ValueError:
                 pass
-    
+
     return None
 
 
@@ -375,7 +363,7 @@ class VaticanScraper:
                         if language_code:
                             languages[language_code] = {
                                 "language": language_name,
-                                "metadata": {  
+                                "metadata": {
                                     "url": (
                                             urljoin(self.BASE_URL, href)
                                             if not href.startswith("http")
@@ -401,7 +389,8 @@ class VaticanScraper:
                     date=date_str,
                     excerpt={},  # Will be filled later when parsing document content
                     metadata={
-                        "vatican_urls": vatican_urls
+                        "vatican_urls": vatican_urls,
+                        "raw_html": {}
                     }
                 )
 
@@ -443,3 +432,90 @@ class VaticanScraper:
         except (ValueError, IndexError):
             pass
         return None
+
+    def fetch_document_content(self, document: Document) -> Document:
+        """Fetch document content for all available languages."""
+        for language, url in document.metadata["vatican_urls"].items():
+            content_data = self._fetch_single_language_content(url, language)
+            if content_data:
+                if "raw_html" not in document.metadata:
+                    document.metadata["raw_html"] = {}
+                document.metadata["raw_html"][language] = content_data["raw_html"]
+           
+                if content_data["excerpt"]:
+                    document.excerpt[language] = content_data["excerpt"]
+   
+        return document
+
+    def _fetch_single_language_content(self, url: str, language: str) -> Optional[Dict[str, str]]:
+        """Fetch content from a single document URL."""
+        try:
+            response = self.session.get(url)
+            response.raise_for_status()
+            soup = BeautifulSoup(response.content, "html.parser")
+       
+            documento_div = soup.find("div", class_="documento")
+            if not documento_div:
+                print(f"Warning: Could not find div.documento in {url}")
+                return None
+       
+            raw_html = str(documento_div)
+            excerpt = self._extract_excerpt(documento_div)
+       
+            return {
+                "raw_html": raw_html,
+                "excerpt": excerpt
+            }
+       
+        except requests.exceptions.RequestException as e:
+            print(f"Error fetching document content from {url}: {e}")
+        except Exception as e:
+            print(f"Error parsing document content from {url}: {e}")
+   
+        return None
+
+    def _extract_excerpt(self, documento_div: BeautifulSoup) -> str:
+        """Extract excerpt from document using improved text selection logic."""
+        # Look for the specific selector pattern: .documento .testo .text.container p:not([align=center]):not(:empty)
+        target_selectors = [
+            ".documento .testo .text.container p:not([align=center])",
+            ".documento .testo .container p:not([align=center])",
+            ".documento .text.container p:not([align=center])",
+            ".documento .container p:not([align=center])",
+            ".documento p:not([align=center])",
+            ".documento p"
+        ]
+   
+        for selector in target_selectors:
+            paragraphs = documento_div.select(selector)
+       
+            for paragraph in paragraphs:
+                text = paragraph.get_text(strip=True)
+           
+                # Skip empty paragraphs or those with only whitespace
+                if not text or text.isspace():
+                    continue
+           
+                # Skip very short paragraphs (likely not meaningful content)
+                if len(text) < 20:
+                    continue
+           
+                # Skip paragraphs that are likely titles, headers, or metadata
+                if (text.isupper() or
+                    text.startswith("PAPA") or
+                    text.startswith("POPE") or
+                    text.startswith("PONTIFF") or
+                    len(text.split()) < 5):
+                    continue
+           
+                # Return the first meaningful paragraph found
+                return text
+   
+        # Fallback: get any text from the document
+        fallback_text = documento_div.get_text(strip=True)
+        if fallback_text:
+            # Take first 300 characters as excerpt
+            words = fallback_text.split()[:50]
+            return " ".join(words) + ("..." if len(words) == 50 else "")
+   
+        return ""

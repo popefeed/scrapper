@@ -8,7 +8,7 @@ from typing import Dict, List, Optional, TypedDict
 class LanguageNames(TypedDict, total=False):
     """Language-specific names mapping"""
     en: Optional[str]
-    es: Optional[str] 
+    es: Optional[str]
     pt: Optional[str]
     it: Optional[str]
     fr: Optional[str]
@@ -19,7 +19,7 @@ class VaticanUrls(TypedDict, total=False):
     """Vatican URLs for different languages"""
     en: Optional[str]
     es: Optional[str]
-    pt: Optional[str] 
+    pt: Optional[str]
     it: Optional[str]
     fr: Optional[str]
     la: Optional[str]
@@ -28,6 +28,7 @@ class VaticanUrls(TypedDict, total=False):
 class DocumentMetadata(TypedDict):
     """Document metadata structure"""
     vatican_urls: VaticanUrls
+    raw_html: Optional[Dict[str, str]]
 
 
 class PopeMetadata(TypedDict):

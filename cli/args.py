@@ -13,6 +13,9 @@ def parse_arguments():
         "--resume", action="store_true", help="Resume interrupted scraping session"
     )
     parser.add_argument(
+        "--skip-documents-with-exists", action="store_true", help="Resume interrupted scraping session"
+    )
+    parser.add_argument(
         "--output-dir",
         type=Path,
         default=Path("../api"),

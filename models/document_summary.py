@@ -16,7 +16,7 @@ class DocumentSummary:
     date: Optional[str]
     title: str
     excerpt: LanguageNames
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization"""
         return asdict(self)

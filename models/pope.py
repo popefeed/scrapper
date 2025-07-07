@@ -21,11 +21,11 @@ class Pope:
         "documents_vatican_url_index": {}
     })
     documents: Dict[DocumentType, List[DocumentSummary]] = field(default_factory=dict)
-    
+
     def to_dict(self) -> Dict:
         """Convert Pope to dictionary for JSON serialization, handling nested DocumentSummary objects."""
         result = asdict(self)
-        
+   
         # Handle nested DocumentSummary objects in the documents field
         if self.documents:
             for doc_type, doc_list in self.documents.items():
@@ -39,5 +39,5 @@ class Pope:
                             # Already a dict or other serializable type
                             converted_docs.append(doc)
                     result['documents'][doc_type] = converted_docs
-        
+   
         return result
